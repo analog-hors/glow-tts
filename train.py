@@ -45,6 +45,7 @@ if __name__ == "__main__":
         mels = mels.to(DEVICE, non_blocking=True)
         mels_lengths = mels_lengths.to(DEVICE, non_blocking=True)
 
+        optimizer.zero_grad()
         with torch.autocast("cuda", enabled=ENABLE_AMP):
             result = model(text, text_lengths, mels, mels_lengths)
 
@@ -65,8 +66,9 @@ if __name__ == "__main__":
 
             loss = mels_loss + duration_loss
 
-        optimizer.zero_grad()
         scaler.scale(loss).backward()
+        scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         scaler.step(optimizer)
         scaler.update()
 
