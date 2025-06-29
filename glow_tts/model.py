@@ -123,7 +123,12 @@ class GlowTTS(nn.Module):
             attn_weights,
         )
 
-    def infer(self, text: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def infer(
+        self,
+        text: torch.Tensor,
+        noise_scale: float = 0.0,
+        time_scale: float = 1.0,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Input shapes:
             - text: `(text_len)`
@@ -141,20 +146,26 @@ class GlowTTS(nn.Module):
 
         # Encode text into text_mean and duration
         # text_mean: (1, mel_channels, text_len)
+        # text_log_stdev: (1, mel_channels, text_len)
         # log_duration: (1, text_len)
-        text_mean, _text_log_stdev, log_duration = self.encoder(text, text_mask)
+        text_mean, text_log_stdev, log_duration = self.encoder(text, text_mask)
 
-        # Upsample text_mean to mels_mean and create mask.
+        # Upsample text distribution to mels distribution and create mask.
         # duration: (1, text_len)
         # mels_mean: (1, mel_channels, mels_len)
         # mels_mask: (1, 1, mels_len)
-        duration = torch.clamp_min(torch.ceil(torch.exp(log_duration)).long(), 1)
+        duration = torch.clamp_min(torch.ceil(torch.exp(log_duration) * time_scale).long(), 1)
         mels_mean = torch.repeat_interleave(text_mean, duration.squeeze(0), 2)
+        mels_log_stdev = torch.repeat_interleave(text_log_stdev, duration.squeeze(0), 2)
         mels_mask = torch.ones((1, 1, mels_mean.shape[2]), device=text.device)
 
-        # Decode mels_mean into mels.
+        # Randomly sample mels_latent from distribution
+        # mels_latent: (1, mel_channels, mels_len)
+        mels_latent = mels_mean + torch.exp(mels_log_stdev) * torch.randn_like(mels_mean) * noise_scale
+
+        # Decode mels_latent into mels.
         # mels: (1, mel_channels, mels_len)
-        mels, _logdet_sum = self.decoder(mels_mean, mels_mask, reverse=True)
+        mels, _logdet_sum = self.decoder(mels_latent, mels_mask, reverse=True)
 
         # Remove dummy batch dimension.
         # mels: (mel_channels, mels_len)
