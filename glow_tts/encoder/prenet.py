@@ -42,8 +42,8 @@ class Prenet(nn.Module):
         self.proj = nn.Conv1d(hidden_channels, in_channels, 1)
 
         assert self.proj.bias is not None
-        torch.nn.init.zeros_(self.proj.weight)
-        torch.nn.init.zeros_(self.proj.bias)
+        nn.init.zeros_(self.proj.weight)
+        nn.init.zeros_(self.proj.bias)
 
     def forward(self, seq: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
