@@ -51,6 +51,11 @@ class TextEncoder(nn.Module):
         self.p_dropout = p_dropout
 
         self.embed = nn.Embedding(num_symbols, embed_channels)
+
+        # Unsure if this does anything.
+        # Was in the reference implementation.
+        nn.init.normal_(self.embed.weight, 0.0, embed_channels ** -0.5)
+
         self.prenet = Prenet(
             embed_channels,
             embed_channels,
