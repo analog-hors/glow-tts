@@ -11,6 +11,16 @@ ENABLE_AMP = True
 LOG_INTERVAL = 10
 CHECKPOINT_INTERVAL = 5000
 
+def noam_scheduler(
+    optimizer: torch.optim.Optimizer,
+    dims: int,
+    warmup_steps: int,
+) -> torch.optim.lr_scheduler.LambdaLR:
+    return torch.optim.lr_scheduler.LambdaLR(
+        optimizer,
+        lambda step: (dims ** -0.5) * min(max(step, 1) ** -0.5, step * (warmup_steps ** -1.5)),
+    )
+
 if __name__ == "__main__":
     dataset = ProcessedDataset("datasets/ljspeech-processed/")
     dataloader = DataLoader(
@@ -25,7 +35,8 @@ if __name__ == "__main__":
     hparams = Hyperparameters(num_symbols=len(TOKENS))
     model = GlowTTS(hparams).to(DEVICE)
 
-    optimizer = torch.optim.AdamW(model.parameters(), 3e-4, weight_decay=1e-6)
+    optimizer = torch.optim.AdamW(model.parameters(), 1.0, weight_decay=1e-7)
+    scheduler = noam_scheduler(optimizer, hparams.dec_hidden_channels, 4000)
     scaler = torch.GradScaler(enabled=ENABLE_AMP)
     batches = 0
 
@@ -33,8 +44,10 @@ if __name__ == "__main__":
         checkpoint = torch.load(sys.argv[1])
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
+        scheduler.load_state_dict(checkpoint["scheduler"])
         scaler.load_state_dict(checkpoint["scaler"])
         batches = checkpoint["batches"]
+        scheduler.last_epoch = batches
 
     model.train()
     running_start = time.time()
@@ -66,11 +79,13 @@ if __name__ == "__main__":
 
             loss = mels_loss + duration_loss
 
+        # TODO fix infs and nans on first batch
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        torch.nn.utils.clip_grad_value_(model.parameters(), 5.0)
         scaler.step(optimizer)
         scaler.update()
+        scheduler.step()
 
         running_loss += loss.item()
         batches += 1
@@ -87,6 +102,7 @@ if __name__ == "__main__":
             torch.save({
                 "model": model.state_dict(),
                 "optimizer": optimizer.state_dict(),
+                "scheduler": scheduler.state_dict(),
                 "scaler": scaler.state_dict(),
                 "batches": batches,
             }, f"checkpoints/{batches:06}-model.pth")
