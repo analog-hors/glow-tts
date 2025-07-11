@@ -1,4 +1,5 @@
 import torch, torch.nn as nn, torch.nn.functional as F
+import math
 
 from .prenet import Prenet
 from .rel_pos_transformer_block import RelativePositionalTransformerBlock
@@ -100,7 +101,7 @@ class TextEncoder(nn.Module):
 
         # Embed seq and transpose.
         # seq: (batch, embed_channels, seq_len)
-        seq = self.embed(seq)
+        seq = self.embed(seq) * math.sqrt(self.embed_channels)
         seq = seq.transpose(1, 2)
 
         # Reshape mask to match seq.
