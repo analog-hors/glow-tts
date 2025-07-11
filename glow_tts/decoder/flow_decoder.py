@@ -111,7 +111,7 @@ class FlowDecoder(nn.Module):
         seq = seq.reshape((batch, num_squeeze, in_channels, trimmed_seq_len // num_squeeze))
         seq = seq.movedim(1, 3)
         seq = seq.reshape((batch, in_channels, trimmed_seq_len))
-        seq = F.pad(seq, (0, seq_len - trimmed_seq_len))
+        seq = F.pad(seq, (0, seq_len - trimmed_seq_len), "reflect")
 
         return seq, logdet_sum
 
