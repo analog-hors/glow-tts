@@ -2,7 +2,6 @@ import torch, numpy as np, torchaudio, librosa
 from torch.utils.data import Dataset
 from g2p_en import G2p
 
-ARPABET_AUX = [" ", "!", "'", ",", "-", ".", "..", "?"]
 ARPABET_STRESS = ["0", "1", "2"]
 ARPABET_VOWELS = [
     "AA", "AE", "AH", "AO", "AW",
@@ -15,21 +14,17 @@ ARPABET_CONSONANTS = [
 ]
 
 TOKEN_PAD = "<pad>"
-TOKEN_START = "<sos>"
-TOKEN_END = "<eos>"
+TOKEN_PUNCT = [" ", "!", "'", ",", "-", ".", "..", "?"]
 
 TOKENS = [
     TOKEN_PAD,
-    TOKEN_START,
-    TOKEN_END,
-    *ARPABET_AUX,
+    *TOKEN_PUNCT,
     *(v + s for v in ARPABET_VOWELS for s in ARPABET_STRESS),
     *ARPABET_CONSONANTS,
 ]
 
 def tokenize(g2p: G2p, s: str) -> torch.Tensor:
-    tokens = [TOKEN_START, *g2p(s), TOKEN_END]
-    return torch.tensor([TOKENS.index(t) for t in tokens])
+    return torch.tensor([TOKENS.index(t) for t in g2p(s)])
 
 def preprocess_ljspeech_dataset(path: str, out: str, mel_transform: torch.nn.Module):
     g2p = G2p()
