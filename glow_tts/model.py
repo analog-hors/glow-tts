@@ -140,8 +140,8 @@ class GlowTTS(nn.Module):
 
         return self.infer_for_onnx(
             text,
-            torch.tensor(noise_scale),
-            torch.tensor(time_scale),
+            torch.tensor(noise_scale, device=text.device),
+            torch.tensor(time_scale, device=text.device),
         )
 
     def infer_for_onnx(
