@@ -138,6 +138,29 @@ class GlowTTS(nn.Module):
             - duration: `(text_len)`
         """
 
+        return self.infer_for_onnx(
+            text,
+            torch.tensor(noise_scale),
+            torch.tensor(time_scale),
+        )
+
+    def infer_for_onnx(
+        self,
+        text: torch.Tensor,
+        noise_scale: torch.Tensor,
+        time_scale: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Input shapes:
+            - text: `(text_len)`
+            - noise_scale: `()`
+            - time_scale: `()`
+
+        Returned shapes:
+            - mels: `(mel_channels, mels_len)`
+            - duration: `(text_len)`
+        """
+
         # Introduce dummy batch dimension and create mask.
         # text: (1, text_len)
         # text_mask: (1, text_len)
@@ -174,6 +197,9 @@ class GlowTTS(nn.Module):
         duration = duration.squeeze(0)
 
         return mels, duration
+    
+    def prepare_for_inference(self):
+        self.decoder.prepare_for_inference()
 
 def _compute_log_likelihood_matrix(
     sample: torch.Tensor,

@@ -86,4 +86,4 @@ class InvConvNear(nn.Module):
         return seq, logdet
 
     def prepare_for_inference(self):
-        self.inv_matrix = self.matrix.inverse()
+        self.inv_matrix = self.matrix.detach().inverse()
